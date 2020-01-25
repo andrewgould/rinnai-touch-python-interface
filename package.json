@@ -1,0 +1,18 @@
+{
+  "author": "Andrew Gould",
+  "description": "Python package to control the Rinnai Touch interface for heating/cooling systems",
+  "homepage": "https://github.com/andrewgould/rinnai-touch-python-interface#readme",
+  "keywords": [
+    "brivis",
+    "rinnai",
+    "heating",
+    "air conditioner"
+  ],
+  "license": "MIT",
+  "name": "rinnai-touch-python-interface",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/andrewgould/rinnai-touch-python-interface.git"
+  },
+  "version": "1.0.0"
+}
