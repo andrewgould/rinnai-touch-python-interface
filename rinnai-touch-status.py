@@ -189,6 +189,7 @@ class BrivisStatus():
     evapStatus = EvapStatus()
     
     def setMode(self,mode):
+        self.currentMode = mode
         if mode == Mode.HEATING:
             self.heaterMode = True
             self.coolingMode = False
@@ -227,6 +228,7 @@ class BrivisStatus():
         """
         sysStatusJson = "{\"Status\": { \"System\": { " \
             + "\"CoolingMode\":"  + JsonBool(self.coolingMode) + "," \
+            + "\"CurrentMode\":\""  + ReadableMode(self.currentMode) + "\"," \
             + "\"EvapMode\":"  + JsonBool(self.evapMode) + "," \
             + "\"HeaterMode\":"  + JsonBool(self.heaterMode) + "," \
             + "\"SystemOn\": " + JsonBool(self.systemOn) + " }," \
@@ -258,6 +260,18 @@ class Mode:
     COOLING = 3
     RC = 4
     NONE = 5
+
+def ReadableMode(mode):
+    if mode == 1:
+        return "HEATING"
+    elif mode == 2:
+        return "EVAP"
+    elif mode == 3:
+        return "COOLING"
+    elif mode == 4:
+        return "RC"
+    else:
+        return "NONE"
 
 # Some nice globals
 currentMode = Mode.NONE
