@@ -206,6 +206,7 @@ class BrivisStatus():
         """Print out the overall status in JSON format.
         {"Status": {
             "System": {
+                "CoolingMode": false,
                 "EvapMode": false,
                 "HeaterMode": false,
                 "SystemOn": false
@@ -225,6 +226,7 @@ class BrivisStatus():
         }
         """
         sysStatusJson = "{\"Status\": { \"System\": { " \
+            + "\"CoolingMode\":"  + JsonBool(self.coolingMode) + "," \
             + "\"EvapMode\":"  + JsonBool(self.evapMode) + "," \
             + "\"HeaterMode\":"  + JsonBool(self.heaterMode) + "," \
             + "\"SystemOn\": " + JsonBool(self.systemOn) + " }," \
@@ -358,12 +360,11 @@ def HandleCoolingMode(client,j,brivisStatus):
 
     gss = GetAttribute(j[1].get("CGOM"),"GSS",None)
     if not gss:
-        # Probably an error
-        debugPrint("No GSS - Not happy, Jan")
+        debugPrint("No GSO here")
 
     else:
-        switch = GetAttribute(gss,"AO",None)
-        if switch == "N":
+        switch = GetAttribute(gss,"CC",None)
+        if switch == "Y":
             debugPrint("Cooling is ON")
             brivisStatus.systemOn = True
             brivisStatus.coolingStatus.coolingOn = True
@@ -374,7 +375,7 @@ def HandleCoolingMode(client,j,brivisStatus):
             brivisStatus.coolingStatus.CirculationFanOn(circFan)
 
             # GSO should be there
-            gso = GetAttribute(j[1].get("HGOM"),"GSO",None)
+            gso = GetAttribute(j[1].get("CGOM"),"GSO",None)
             if not gso:
                 # Probably an error
                 debugPrint("No GSO when cooling on. Not happy, Jan")
@@ -389,7 +390,7 @@ def HandleCoolingMode(client,j,brivisStatus):
                 debugPrint("Cooling set temp is: {}".format(setTemp))
                 brivisStatus.coolingStatus.setTemp = int(setTemp)
 
-        elif switch == "F":
+        elif switch == "N":
             # Heater is off
             debugPrint("Cooling is OFF")
             brivisStatus.systemOn = False
