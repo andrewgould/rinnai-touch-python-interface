@@ -14,6 +14,10 @@ parser.add_argument("--heatZone",choices=['A','B','C','D'], help='Which Zone?')
 parser.add_argument("--zoneAction",choices=['on','off'], help='What are we doing to the zone')
 parser.add_argument("--heatFan",choices=['on','off'], help='Turn the Heater circulation fan on/off')
 
+parser.add_argument("--coolTemp",type=int,choices=range(8,30))
+parser.add_argument("--coolZone",choices=['A','B','C','D'], help='Which Zone?')
+parser.add_argument("--coolFan",choices=['on','off'], help='Turn the Cooling circulation fan on/off')
+
 parser.add_argument("--evapFanSpeed",type=int,choices=range(1,16))
 parser.add_argument("--evapPump",choices=['on','off'], help='Turn the Evap pump on/off')
 parser.add_argument("--evapFan",choices=['on','off'], help='Turn the Evap fan on/off')
@@ -39,6 +43,7 @@ print(response)
 # setup some basic commands
 # Top level mode
 # Operating mode
+modeCoolCmd = 'N000001{"SYST": {"OSS": {"MD": "C" } } }'
 modeEvapCmd = 'N000001{"SYST": {"OSS": {"MD": "E" } } }'
 modeHeatCmd = 'N000001{"SYST": {"OSS": {"MD": "H" } } }'
 
@@ -57,6 +62,22 @@ heatZoneA = 'N000001{"HGOM": {"ZAO": {"UE": "{}" } } }'  # Y = On, N = Off
 heatZoneB = 'N000001{"HGOM": {"ZBO": {"UE": "{}" } } }'
 heatZoneC = 'N000001{"HGOM": {"ZCO": {"UE": "{}" } } }'
 heatZoneD = 'N000001{"HGOM": {"ZDO": {"UE": "{}" } } }'
+
+# Cooling Commands
+#coolCmd = 'N000001{"CGOM": {"OOP": {"ST": "{}" } } }' # N = On, F = Off
+coolOnCmd = 'N000001{"CGOM": {"OOP": {"ST": "N" } } }'
+coolOffCmd = 'N000001{"CGOM": {"OOP": {"ST": "F" } } }'
+
+coolSetTemp = 'N000001{{"CGOM": {{"GSO": {{"SP": "{temp}" }} }} }}'
+coolCircFanOn = 'N000001{"CGOM": {"GSO": {"FS": "M" } } }'
+
+#coolZone = 'N000001{"HGOM": {"Z{zone}O": {"UE": "{}" } } }'  # Y = On, N = Off
+coolZoneOn = 'N000001{{"CGOM": {{"Z{zone}O": {{"UE": "Y" }} }} }}'
+coolZoneOff = 'N000001{{"CGOM": {{"Z{zone}O": {{"UE": "N" }} }} }}'
+coolZoneA = 'N000001{"CGOM": {"ZAO": {"UE": "{}" } } }'  # Y = On, N = Off
+coolZoneB = 'N000001{"CGOM": {"ZBO": {"UE": "{}" } } }'
+coolZoneC = 'N000001{"CGOM": {"ZCO": {"UE": "{}" } } }'
+coolZoneD = 'N000001{"CGOM": {"ZDO": {"UE": "{}" } } }'
 
 # Evap Cooling commands
 #evapCmd =  'N000001{"ECOM": {"GSO": {"SW": "{}" } } }' # N = On, F = Off
@@ -112,6 +133,42 @@ def HandleMode(args,client):
                 print(resp)
             elif args.zoneAction == "off":
                 resp = SendToTouch(client,heatZoneOff.format(zone=args.heatZone))
+                print(resp)
+                return
+
+    elif args.mode =="cool":
+        # Make sure we are in cooling mode
+        resp = SendToTouch(client,modeCoolCmd)
+        print(resp)
+        # Give it a chance if there are further commands
+        time.sleep(2)
+
+        if args.action is not None:
+            if args.action == "on":
+                resp = SendToTouch(client,coolOnCmd)
+                print(resp)
+            else:
+                # Assume it is off cmd then
+                # Assume we are in cooling mode, otherwise no need to turn it Off
+                resp = SendToTouch(client,coolOffCmd)
+                print(resp)
+                return
+        
+        if args.coolTemp is not None:
+            time.sleep(2)
+            # Assume on already
+            resp = SendToTouch(client,coolSetTemp.format(temp=args.coolTemp))
+            print(resp)
+
+        if args.coolZone is not None:
+            time.sleep(2)
+            
+            if args.zoneAction == "on":
+                # Assume on already
+                resp = SendToTouch(client,coolZoneOn.format(zone=args.coolZone))
+                print(resp)
+            elif args.zoneAction == "off":
+                resp = SendToTouch(client,coolZoneOff.format(zone=args.coolZone))
                 print(resp)
                 return
 
