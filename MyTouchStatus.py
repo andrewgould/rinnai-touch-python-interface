@@ -73,6 +73,70 @@ class HeaterStatus():
 
         return heaterStatusJson
 
+class CoolingStatus():
+    """Cooling function status"""
+    coolingOn = False
+    circulationFanOn = False
+    manualMode = False
+    autoMode = False
+    setTemp = 0
+    zoneA = False
+    zoneB = False
+    zoneC = False
+    zoneD = False
+
+    def SetMode(self,mode):
+        # A = Auto Mode and M = Manual Mode
+        if mode == "A":
+            self.autoMode = True
+            self.manualMode = False
+        elif mode == "M":
+            self.autoMode = False
+            self.manualMode = True
+
+    def SetZones(self,za,zb,zc,zd):
+        # Y = On, N = off
+        self.zoneA = YNtoBool(za)
+        self.zoneB = YNtoBool(zb)
+        self.zoneC = YNtoBool(zc)
+        self.zoneD = YNtoBool(zd)
+
+    def CirculationFanOn(self,statusStr):
+        # Y = On, N = Off
+        if statusStr == "Y":
+            self.circulationFanOn = True
+        else:
+            self.circulationFanOn = False
+
+    def Dump(self):
+        """Print out the cooling status in JSON format.
+
+            "Cooling": {
+                "CoolingOn":false,
+                "CirculationFanOn":false,
+                "AutoMode":false,
+                "ManualMode":false,
+                "SetTemp":0,
+                "ZoneA":false,
+                "ZoneB":false,
+                "ZoneC":false,
+                "ZoneD":false
+            }
+
+        }
+        """
+        coolingStatusJson = "\"Cooling\": { \"CoolingOn\":" + JsonBool(self.coolingOn) + "," \
+            + "\"CirculationFanOn\": "   + JsonBool(self.circulationFanOn) + "," \
+            + "\"AutoMode\": "   + JsonBool(self.autoMode) + "," \
+            + "\"ManualMode\": " + JsonBool(self.manualMode) + "," \
+            + "\"SetTemp\": " + str(self.setTemp) + "," \
+            + "\"ZoneA\": " + JsonBool(self.zoneA) + "," \
+            + "\"ZoneB\": " + JsonBool(self.zoneB) + "," \
+            + "\"ZoneC\": " + JsonBool(self.zoneC) + "," \
+            + "\"ZoneD\": " + JsonBool(self.zoneD) + "}"
+
+        return coolingStatusJson
+
 class EvapStatus():
     """Evap function status"""
     evapOn = False
@@ -117,17 +181,25 @@ class EvapStatus():
 class BrivisStatus():
     """Overall Class for describing status"""
     evapMode = False
+    coolingMode = False
     heaterMode = False
     systemOn = False
     heaterStatus = HeaterStatus()
+    coolingStatus = CoolingStatus()
     evapStatus = EvapStatus()
     
     def setMode(self,mode):
         if mode == Mode.HEATING:
             self.heaterMode = True
+            self.coolingMode = False
+            self.evapMode = False
+        elif mode == Mode.COOLING:
+            self.heaterMode = False
+            self.coolingMode = True
             self.evapMode = False
         elif mode == Mode.EVAP:
             self.heaterMode = False
+            self.coolingMode = False
             self.evapMode = True
 
     def Dump(self):
@@ -157,6 +229,7 @@ class BrivisStatus():
             + "\"HeaterMode\":"  + JsonBool(self.heaterMode) + "," \
             + "\"SystemOn\": " + JsonBool(self.systemOn) + " }," \
             + self.heaterStatus.Dump() + ","\
+            + self.coolingStatus.Dump() + ","\
             + self.evapStatus.Dump() + "}}"
 
         return sysStatusJson
@@ -169,7 +242,7 @@ def JsonBool(bool):
         return "false"
 
 def YNtoBool(str):
-    """Convert Rinna YN to Bool"""
+    """Convert Rinnai YN to Bool"""
     if str == "Y":
         return True
     else:
@@ -278,6 +351,65 @@ def HandleHeatingMode(client,j,brivisStatus):
             zd = GetAttribute(z,"UE",None)
         brivisStatus.heaterStatus.SetZones(za,zb,zc,zd)
 
+def HandleCoolingMode(client,j,brivisStatus):
+    brivisStatus.setMode(Mode.COOLING)
+
+    debugPrint("We are in COOL mode")
+
+    gss = GetAttribute(j[1].get("CGOM"),"GSS",None)
+    if not gss:
+        # Probably an error
+        debugPrint("No GSS - Not happy, Jan")
+
+    else:
+        switch = GetAttribute(gss,"AO",None)
+        if switch == "N":
+            debugPrint("Cooling is ON")
+            brivisStatus.systemOn = True
+            brivisStatus.coolingStatus.coolingOn = True
+
+            # Cooling is on - get attributes
+            circFan = GetAttribute(gss,"FS",None)
+            debugPrint("Circulation Fan is: {}".format(circFan))
+            brivisStatus.coolingStatus.CirculationFanOn(circFan)
+
+            # GSO should be there
+            gso = GetAttribute(j[1].get("HGOM"),"GSO",None)
+            if not gso:
+                # Probably an error
+                debugPrint("No GSO when cooling on. Not happy, Jan")
+            else:
+                # Heater is on - get attributes
+                opMode = GetAttribute(gso,"OP",None)
+                debugPrint("Cooling OpMode is: {}".format(opMode)) # A = Auto, M = Manual
+                brivisStatus.coolingStatus.SetMode(opMode)
+
+                # Set temp?
+                setTemp = GetAttribute(gso,"SP",None)
+                debugPrint("Cooling set temp is: {}".format(setTemp))
+                brivisStatus.coolingStatus.setTemp = int(setTemp)
+
+        elif switch == "F":
+            # Heater is off
+            debugPrint("Cooling is OFF")
+            brivisStatus.systemOn = False
+            brivisStatus.coolingStatus.coolingOn = False
+
+        za = zb = zc = zd = None
+        z = GetAttribute(j[1].get("CGOM"),"ZAO",None)
+        if z:
+            za = GetAttribute(z,"UE",None)
+        z = GetAttribute(j[1].get("CGOM"),"ZBO",None)
+        if z:
+            zb = GetAttribute(z,"UE",None)
+        z = GetAttribute(j[1].get("CGOM"),"ZCO",None)
+        if z:
+            zc = GetAttribute(z,"UE",None)
+        z = GetAttribute(j[1].get("CGOM"),"ZDO",None)
+        if z:
+            zd = GetAttribute(z,"UE",None)
+        brivisStatus.coolingStatus.SetZones(za,zb,zc,zd)
+
 def HandleEvapMode(client,j,brivisStatus):
     brivisStatus.setMode(Mode.EVAP)
     debugPrint("We are in EVAP mode")
@@ -326,6 +458,9 @@ def HandleStatus(client,brivisStatus):
 
     if 'HGOM' in j[1]:
         HandleHeatingMode(client,j,brivisStatus)
+
+    elif 'CGOM' in j[1]:
+        HandleCoolingMode(client,j,brivisStatus)
 
     elif 'ECOM' in j[1]:
         HandleEvapMode(client,j,brivisStatus)
